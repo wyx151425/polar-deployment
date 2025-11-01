@@ -1,0 +1,74 @@
+# Docker Compose 语法的版本
+version: "3.8"
+# 该部分包含了所有要运行的容器
+services:
+
+  # 该部分描述了 catalog-service容器
+  catalog-service:
+    # Catalog Service 应该在 PostgreSQL 数据库之后启动
+    depends_on:
+      - polar-postgres
+    # 定义要基于哪个镜像运行容器
+    image: "catalog-service"
+    # 容器名称
+    container_name: "catalog-service"
+    # 该部分列出了端口映射
+    ports:
+      - 9001:9001
+      # JVM 要监听的调试连接端口
+      - 8001:8001
+    # 该部分列出了环境变量
+    environment:
+      # Paketo Buildpacks 环境变量，配置用于内存计算的线程数量
+      - BPL_JVM_THREAD_COUNT=50
+      # 激活 JVM 配置以接受调试连接 (该参数由 Buildpacks 提供)
+      - BPL_DEBUG_ENABLED=true
+      # 在 8001 端口以套接字的形式接受调试连接 (该参数由 Buildpacks 提供)
+      - BPL_DEBUG_PORT=8001
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog
+      # 启用名为 “testdata” 的 Spring profile
+      - SPRING_PROFILES_ACTIVE=testdata
+
+  order-service:
+    depends_on:
+      - polar-postgres
+    image: "order-service"
+    container_name: "order-service"
+    ports:
+      - 9002:9002
+      - 8002:8002
+    environment:
+      # Buildpacks environment variable to enable debug through a socket on port 8002
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8002
+      - POLAR_CATALOG_SERVICE_URI=http://catalog-service:9001
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+      - SPRING_R2DBC_URL=r2dbc:postgresql://polar-postgres:5432/polardb_order
+      - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
+
+  config-service:
+    image: "config-service"
+    container_name: "config-service"
+    ports:
+      - 8888:8888
+      - 9888:9888
+    environment:
+      - BPL_JVM_THREAD_COUNT=50
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=9888
+
+  # 该部分描述了 polar-postgres 容器
+  polar-postgres:
+    image: "postgres:14.4"
+    container_name: "polar-postgres"
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+#      # 启用存储卷之后不需要再定义 POSTGRES_DB 的值
+#      - POSTGRES_DB=polardb_catalog
+    # 以存储卷的形式将初始化 SQL 脚本挂载到容器上
+    volumes:
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
