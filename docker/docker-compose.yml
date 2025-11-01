@@ -72,3 +72,11 @@ services:
     # 以存储卷的形式将初始化 SQL 脚本挂载到容器上
     volumes:
       - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  polar-redis:
+    # 使用 Redis 7.0
+    image: "redis:7.0"
+    container_name: "polar-redis"
+    # 通过 6379 端口暴露 Redis
+    ports:
+      - 6379:6379
