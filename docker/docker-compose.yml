@@ -47,6 +47,21 @@ services:
       - SPRING_R2DBC_URL=r2dbc:postgresql://polar-postgres:5432/polardb_order
       - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
 
+  dispatcher-service:
+    depends_on:
+      - polar-rabbitmq
+    image: "dispatcher-service"
+    container_name: dispatcher-service
+    ports:
+      - 9003:9003
+      - 8003:8003
+    environment:
+      # Buildpacks environment variable to enable debug through a socket on port 8002
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8003
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+      - SPRING_RABBITMQ_HOST=polar-rabbitmq
+
   edge-service:
     depends_on:
       - polar-redis
@@ -83,8 +98,8 @@ services:
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
-#      # 启用存储卷之后不需要再定义 POSTGRES_DB 的值
-#      - POSTGRES_DB=polardb_catalog
+    #      # 启用存储卷之后不需要再定义 POSTGRES_DB 的值
+    #      - POSTGRES_DB=polardb_catalog
     # 以存储卷的形式将初始化 SQL 脚本挂载到容器上
     volumes:
       - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -96,3 +111,16 @@ services:
     # 通过 6379 端口暴露 Redis
     ports:
       - 6379:6379
+
+  polar-rabbitmq:
+    # 带有管理插件的官方 RabbitMQ 镜像
+    image: rabbitmq:3.10-management
+    container_name: polar-rabbitmq
+    ports:
+      # RabbitMQ 监听 AMQP 请求的端口
+      - 5672:5672
+      # 用于暴露管理 GUI 的端口
+      - 15672:15672
+    # 以存储卷的形式挂载配置文件
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
