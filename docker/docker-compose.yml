@@ -91,6 +91,17 @@ services:
       - BPL_DEBUG_ENABLED=true
       - BPL_DEBUG_PORT=9888
 
+  polar-ui:
+    # 用于打包 Angular 应用的容器镜像，本书作者已经预先构建好了
+    image: "ghcr.io/polarbookshop/polar-ui:v1"
+    container_name: "polar-ui"
+    ports:
+      # NGINX 会在 9004 端口托管 SPA
+      - 9004:9004
+    environment:
+      # 配置 NGINX 服务器的端口
+      - PORT=9004
+
   # 该部分描述了 polar-postgres 容器
   polar-postgres:
     image: "postgres:14.4"
@@ -126,3 +137,19 @@ services:
     # 以存储卷的形式挂载配置文件
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+
+  # 该区域描述了新的 Keycloak 容器
+  polar-keycloak:
+    image: quay.io/keycloak/keycloak:19.0
+    container_name: "polar-keycloak"
+    # 在开发模式下 (使用嵌入式数据库) 启动 Keycloak，在启动的时候导入所提供的配置
+    command: start-dev --import-realm
+    # 配置一个存储卷，以便于将配置文件加载到容器中
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    # 将管理员凭证定义为环境变量
+    environment:
+      - KEYCLOAK_ADMIN=user
+      - KEYCLOAK_ADMIN_PASSWORD=password
+    ports:
+      - 8080:8080
